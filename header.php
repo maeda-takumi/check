@@ -23,9 +23,15 @@ $isLoggedIn = !empty($_SESSION['is_logged_in']);
     <p class="app-title">チェックシート</p>
     <button type="button" class="menu-toggle" aria-label="メニュー" aria-expanded="false">☰</button>
     <nav class="fab-menu" aria-hidden="true">
-      <a class="fab-item" href="logs.php">ログ確認</a>
-      <a class="fab-item" href="question_builder.php">設問生成</a>
-      <a class="fab-item" href="check.php">チェック</a>
+      <a class="fab-item" href="logs.php" aria-label="ログ確認" title="ログ確認">
+        <img src="img/log.png" alt="" class="fab-icon" loading="lazy">
+      </a>
+      <a class="fab-item" href="question_builder.php" aria-label="設問生成" title="設問生成">
+        <img src="img/question.png" alt="" class="fab-icon" loading="lazy">
+      </a>
+      <a class="fab-item" href="check.php" aria-label="チェック" title="チェック">
+        <img src="img/check.png" alt="" class="fab-icon" loading="lazy">
+      </a>
     </nav>
   </header>
 <?php endif; ?>
