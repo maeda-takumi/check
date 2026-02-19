@@ -37,12 +37,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($errors === []) {
         try {
             $pdo = dbConnect();
-            $stmt = $pdo->prepare('SELECT user_name, login_name, password_hash FROM users WHERE login_name = :login_name LIMIT 1');
+            $stmt = $pdo->prepare('SELECT user_id, user_name, login_name, password_hash FROM users WHERE login_name = :login_name LIMIT 1');
             $stmt->execute([':login_name' => $loginId]);
             $user = $stmt->fetch();
 
             if ($user && password_verify($loginPassword, (string)$user['password_hash'])) {
                 $_SESSION['is_logged_in'] = true;
+                $_SESSION['auth_user_id'] = (int)$user['user_id'];
                 $_SESSION['auth_id'] = (string)$user['login_name'];
                 $_SESSION['auth_user_name'] = (string)$user['user_name'];
 
@@ -53,8 +54,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } catch (PDOException $e) {
             $errors[] = 'ログインに失敗しました。DB接続を確認してください。';
         }
-        header('Location: login.php');
-        exit;
     }
 }
 

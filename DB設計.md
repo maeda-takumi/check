@@ -41,8 +41,8 @@ CREATE TABLE question_group_logs (
   q_g_l_id    BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   group_id    BIGINT UNSIGNED NOT NULL,
   user_id     BIGINT UNSIGNED NOT NULL,
-  target_date DATE NOT NULL,             -- チェック対象日（超おすすめ）
-  log_date    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, -- 保存時刻
+  target_date DATE NOT NULL,
+  log_date    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   status      TINYINT UNSIGNED NOT NULL DEFAULT 0, -- 0:draft 1:submitted
   CONSTRAINT fk_qgl_group
     FOREIGN KEY (group_id) REFERENCES question_groups(group_id)
@@ -60,12 +60,11 @@ CREATE TABLE question_logs (
   q_g_l_id    BIGINT UNSIGNED NOT NULL,
   q_id        BIGINT UNSIGNED NOT NULL,
 
-  -- 値は分けるのがおすすめ
+
   value_bool  TINYINT(1) NULL,
   value_text  TEXT NULL,
 
-  -- 設問文スナップショット（後から設問が変わってもログが壊れない）
-  question_snapshot TEXT NULL,
+  question_snapshot TEXT NULL, -- 設問編集後もログを守るため値保存
 
   updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
@@ -80,3 +79,8 @@ CREATE TABLE question_logs (
   -- 1回のRun内で同じ設問は1行だけ（自動保存で重複防止）
   UNIQUE KEY uq_run_question (q_g_l_id, q_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 推奨拡張（履歴厳密運用）
+-- ALTER TABLE question_group_logs
+--   ADD COLUMN group_name_snapshot VARCHAR(200) NULL,
+--   ADD COLUMN checker_name_snapshot VARCHAR(100) NULL;
