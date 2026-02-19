@@ -1,5 +1,6 @@
 <?php
 session_start();
+require_once __DIR__ . '/db.php';
 
 $errors = [];
 $successMessage = $_SESSION['success_message'] ?? null;
@@ -22,13 +23,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($errors === []) {
-        $_SESSION['auth_id'] = $loginId;
-        $_SESSION['auth_pass_hash'] = password_hash($loginPassword, PASSWORD_DEFAULT);
-        $_SESSION['is_logged_in'] = false;
-        $_SESSION['success_message'] = 'ログイン情報を保存しました。ログインしてください。';
+        try {
+            $pdo = dbConnect();
+            $stmt = $pdo->prepare(
+                'INSERT INTO users (user_name, login_name, password_hash)
+                 VALUES (:user_name, :login_name, :password_hash)
+                 ON DUPLICATE KEY UPDATE
+                   user_name = VALUES(user_name),
+                   password_hash = VALUES(password_hash),
+                   updated_at = CURRENT_TIMESTAMP'
+            );
+            $stmt->execute([
+                ':user_name' => $loginId,
+                ':login_name' => $loginId,
+                ':password_hash' => password_hash($loginPassword, PASSWORD_DEFAULT),
+            ]);
 
-        header('Location: login.php');
-        exit;
+            $_SESSION['is_logged_in'] = false;
+            $_SESSION['success_message'] = 'ログイン情報をDBへ保存しました。ログインしてください。';
+
+            header('Location: login.php');
+            exit;
+        } catch (PDOException $e) {
+            $errors[] = 'DB保存に失敗しました。接続設定を確認してください。';
+        }
     }
 }
 
@@ -60,7 +78,7 @@ require_once __DIR__ . '/header.php';
 
       <button type="submit">保存する</button>
     </form>
-    <p class="helper">※ 現段階ではセッションに保存します。後でDB保存へ差し替え可能です。</p>
+    <p class="helper">※ 入力したログイン情報はDBへ保存されます。</p>
   </section>
 </main>
 <?php require_once __DIR__ . '/footer.php'; ?>
