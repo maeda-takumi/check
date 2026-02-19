@@ -50,12 +50,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$pageTitle = 'ログイン情報の設定';
+$pageTitle = 'ログイン情報登録';
 require_once __DIR__ . '/header.php';
 ?>
 <main class="container">
   <section class="card">
-    <h1>ログイン情報の設定</h1>
+    <h1>ログイン情報登録</h1>
 
     <?php if ($successMessage): ?>
       <div class="notice notice-success"><?= htmlspecialchars($successMessage, ENT_QUOTES, 'UTF-8'); ?></div>
@@ -78,7 +78,7 @@ require_once __DIR__ . '/header.php';
 
       <button type="submit">保存する</button>
     </form>
-    <p class="helper">※ 入力したログイン情報はDBへ保存されます。</p>
+    <p class="helper">登録後は <a class="btn-link" href="login.php">ログイン画面</a> からログインしてください。</p>
   </section>
 </main>
 <?php require_once __DIR__ . '/footer.php'; ?>
