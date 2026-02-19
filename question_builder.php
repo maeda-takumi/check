@@ -37,13 +37,38 @@ try {
             $messages[] = 'グループ状態を更新しました。';
         }
 
-        if ($action === 'create_question') {
-            $groupId = (int)($_POST['group_id'] ?? 0);
-            $question = trim((string)($_POST['question'] ?? ''));
-            $checkType = (int)($_POST['check_type'] ?? 1);
-            $required = (int)($_POST['required'] ?? 0) === 1 ? 1 : 0;
 
-            if ($groupId <= 0 || $question === '') {
+        if ($action === 'create_question' || $action === 'create_questions') {
+            $groupId = (int)($_POST['group_id'] ?? 0);
+            $submittedQuestions = $_POST['question'] ?? [];
+            $submittedCheckTypes = $_POST['check_type'] ?? [];
+            $submittedRequired = $_POST['required'] ?? [];
+
+            if (!is_array($submittedQuestions)) {
+                $submittedQuestions = [$submittedQuestions];
+            }
+            if (!is_array($submittedCheckTypes)) {
+                $submittedCheckTypes = [$submittedCheckTypes];
+            }
+
+            $createRows = [];
+            foreach ($submittedQuestions as $index => $questionText) {
+                $questionText = trim((string)$questionText);
+                if ($questionText === '') {
+                    continue;
+                }
+
+                $checkType = isset($submittedCheckTypes[$index]) ? (int)$submittedCheckTypes[$index] : 1;
+                $required = isset($submittedRequired[$index]) && (int)$submittedRequired[$index] === 1 ? 1 : 0;
+
+                $createRows[] = [
+                    'question' => $questionText,
+                    'check_type' => in_array($checkType, [1, 2], true) ? $checkType : 1,
+                    'required' => $required,
+                ];
+            }
+
+            if ($groupId <= 0 || empty($createRows)) {
                 $errors[] = '設問追加にはグループと設問文が必要です。';
             } else {
                 $sortStmt = $pdo->prepare('SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_sort FROM questions WHERE group_id = :group_id');
@@ -51,13 +76,17 @@ try {
                 $nextSort = (int)$sortStmt->fetch()['next_sort'];
 
                 $insert = $pdo->prepare('INSERT INTO questions (group_id, question, check_type, required, sort_order, is_active) VALUES (:group_id, :question, :check_type, :required, :sort_order, 1)');
-                $insert->execute([
-                    ':group_id' => $groupId,
-                    ':question' => $question,
-                    ':check_type' => in_array($checkType, [1, 2], true) ? $checkType : 1,
-                    ':required' => $required,
-                    ':sort_order' => $nextSort,
-                ]);
+
+                foreach ($createRows as $row) {
+                    $insert->execute([
+                        ':group_id' => $groupId,
+                        ':question' => $row['question'],
+                        ':check_type' => $row['check_type'],
+                        ':required' => $row['required'],
+                        ':sort_order' => $nextSort,
+                    ]);
+                    $nextSort++;
+                }
                 
                 $selectedGroupId = $groupId;
                 $mode = 'edit';
@@ -213,24 +242,27 @@ require_once __DIR__ . '/header.php';
           <button type="submit"><?= (int)$selectedGroup['is_active'] === 1 ? 'グループ無効化' : 'グループ有効化'; ?></button>
         </form>
 
-        <form method="post">
-          <input type="hidden" name="action" value="create_question">
+        <form method="post" id="question-add-form" class="question-add-form">
+          <input type="hidden" name="action" value="create_questions">
           <input type="hidden" name="group_id" value="<?= (int)$selectedGroup['group_id']; ?>">
-          <div class="form-row">
-            <label>設問文</label>
-            <input type="text" name="question" required>
+          <div class="question-add-header">
+            <h3>設問追加</h3>
+            <button type="button" id="add-question-row">＋ 設問を追加</button>
           </div>
+          <div id="question-row-list" class="question-row-list"></div>
+          <template id="question-row-template">
+            <div class="question-row">
+              <input type="text" name="question[]" placeholder="設問" required>
+              <select name="check_type[]" aria-label="タイプ">
+                <option value="1">チェックボックス</option>
+                <option value="2">テキスト</option>
+              </select>
+              <label class="required-check"><input type="checkbox" name="required[{index}]" value="1"> 必須</label>
+            </div>
+          </template>
           <div class="form-row">
-            <label>タイプ</label>
-            <select name="check_type">
-              <option value="1">チェックボックス</option>
-              <option value="2">テキスト</option>
-            </select>
+            <button type="submit">設問を保存</button>
           </div>
-          <div class="form-row">
-            <label><input type="checkbox" name="required" value="1"> 必須</label>
-          </div>
-          <button type="submit">設問追加</button>
         </form>
 
         <?php if (!empty($questionsByGroup[(int)$selectedGroup['group_id']])): ?>
@@ -285,4 +317,26 @@ require_once __DIR__ . '/header.php';
     <?php endif; ?>
   </section>
 </main>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const list = document.getElementById('question-row-list');
+  const button = document.getElementById('add-question-row');
+  const template = document.getElementById('question-row-template');
+
+  if (!list || !button || !template) {
+    return;
+  }
+
+  let rowIndex = 0;
+
+  const appendRow = function () {
+    const html = template.innerHTML.replace('{index}', String(rowIndex));
+    rowIndex += 1;
+    list.insertAdjacentHTML('beforeend', html);
+  };
+
+  button.addEventListener('click', appendRow);
+  appendRow();
+});
+</script>
 <?php require_once __DIR__ . '/footer.php'; ?>
