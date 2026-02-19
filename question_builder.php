@@ -117,6 +117,44 @@ try {
             }
         }
 
+        if ($action === 'update_questions_bulk') {
+            $groupId = (int)($_POST['group_id'] ?? 0);
+            $questionIds = $_POST['question_id'] ?? [];
+            $questions = $_POST['question'] ?? [];
+            $checkTypes = $_POST['check_type'] ?? [];
+            $requiredFlags = $_POST['required'] ?? [];
+
+            if (!is_array($questionIds) || !is_array($questions) || !is_array($checkTypes)) {
+                $errors[] = '設問更新データの形式が不正です。';
+            } elseif ($groupId <= 0) {
+                $errors[] = '設問更新に必要なグループ情報が不足しています。';
+            } else {
+                $update = $pdo->prepare('UPDATE questions SET question = :question, check_type = :check_type, required = :required WHERE q_id = :id AND group_id = :group_id');
+
+                foreach ($questionIds as $index => $questionIdRaw) {
+                    $questionId = (int)$questionIdRaw;
+                    $questionText = trim((string)($questions[$index] ?? ''));
+                    $checkType = (int)($checkTypes[$index] ?? 1);
+                    $required = isset($requiredFlags[$index]) && (int)$requiredFlags[$index] === 1 ? 1 : 0;
+
+                    if ($questionId <= 0 || $questionText === '') {
+                        continue;
+                    }
+
+                    $update->execute([
+                        ':question' => $questionText,
+                        ':check_type' => in_array($checkType, [1, 2], true) ? $checkType : 1,
+                        ':required' => $required,
+                        ':id' => $questionId,
+                        ':group_id' => $groupId,
+                    ]);
+                }
+
+                $messages[] = '設問をまとめて更新しました。';
+                $selectedGroupId = $groupId;
+                $mode = 'edit';
+            }
+        }
         if ($action === 'move_question') {
             $questionId = (int)($_POST['question_id'] ?? 0);
             $direction = (string)($_POST['direction'] ?? 'up');
@@ -266,51 +304,58 @@ require_once __DIR__ . '/header.php';
         </form>
 
         <?php if (!empty($questionsByGroup[(int)$selectedGroup['group_id']])): ?>
-          <ul class="list">
-            <?php foreach ($questionsByGroup[(int)$selectedGroup['group_id']] as $question): ?>
-              <li>
-                <form method="post">
-                  <input type="hidden" name="action" value="update_question">
-                  <input type="hidden" name="group_id" value="<?= (int)$selectedGroup['group_id']; ?>">
-                  <input type="hidden" name="question_id" value="<?= (int)$question['q_id']; ?>">
-                  <div class="form-row">
-                    <label>設問文</label>
-                    <input type="text" name="question" value="<?= htmlspecialchars((string)$question['question'], ENT_QUOTES, 'UTF-8'); ?>" required>
-                  </div>
-                  <div class="form-row">
-                    <label>タイプ</label>
-                    <select name="check_type">
+          <form method="post" class="question-edit-form">
+            <input type="hidden" name="group_id" value="<?= (int)$selectedGroup['group_id']; ?>">
+
+            <div class="question-edit-list">
+              <?php foreach ($questionsByGroup[(int)$selectedGroup['group_id']] as $index => $question): ?>
+                <div class="question-edit-row <?= (int)$question['is_active'] === 0 ? 'is-inactive' : ''; ?>">
+                  <input type="hidden" name="question_id[]" value="<?= (int)$question['q_id']; ?>">
+                  <div class="question-edit-main">
+                    <input type="text" name="question[]" value="<?= htmlspecialchars((string)$question['question'], ENT_QUOTES, 'UTF-8'); ?>" required aria-label="設問文">
+                    <select name="check_type[]" aria-label="タイプ">
                       <option value="1" <?= (int)$question['check_type'] === 1 ? 'selected' : ''; ?>>チェックボックス</option>
                       <option value="2" <?= (int)$question['check_type'] === 2 ? 'selected' : ''; ?>>テキスト</option>
                     </select>
+                    <label class="required-check"><input type="checkbox" name="required[<?= (int)$index; ?>]" value="1" <?= (int)$question['required'] === 1 ? 'checked' : ''; ?>> 必須</label>
                   </div>
-                  <div class="form-row">
-                    <label><input type="checkbox" name="required" value="1" <?= (int)$question['required'] === 1 ? 'checked' : ''; ?>> 必須</label>
-                  </div>
-                  <button type="submit">設問更新</button>
-                </form>
-                <form method="post" class="inline-form">
-                  <input type="hidden" name="action" value="move_question">
-                  <input type="hidden" name="question_id" value="<?= (int)$question['q_id']; ?>">
-                  <input type="hidden" name="direction" value="up">
-                  <button type="submit">↑</button>
-                </form>
-                <form method="post" class="inline-form">
-                  <input type="hidden" name="action" value="move_question">
-                  <input type="hidden" name="question_id" value="<?= (int)$question['q_id']; ?>">
-                  <input type="hidden" name="direction" value="down">
-                  <button type="submit">↓</button>
-                </form>
-                <form method="post" class="inline-form">
-                  <input type="hidden" name="action" value="toggle_question">
-                  <input type="hidden" name="question_id" value="<?= (int)$question['q_id']; ?>">
-                  <input type="hidden" name="group_id" value="<?= (int)$selectedGroup['group_id']; ?>">
-                  <input type="hidden" name="is_active" value="<?= (int)$question['is_active']; ?>">
-                  <button type="submit"><?= (int)$question['is_active'] === 1 ? '無効化' : '有効化'; ?></button>
-                </form>
-              </li>
+                </div>
+              <?php endforeach; ?>
+            </div>
+
+            <div class="form-row">
+              <button type="submit" name="action" value="update_questions_bulk">変更をまとめて保存</button>
+            </div>
+          </form>
+
+          <div class="question-order-list">
+            <?php foreach ($questionsByGroup[(int)$selectedGroup['group_id']] as $question): ?>
+              <div class="question-order-row">
+                <span class="question-order-label"><?= htmlspecialchars((string)$question['question'], ENT_QUOTES, 'UTF-8'); ?></span>
+                <div class="question-row-actions">
+                  <form method="post" class="inline-form">
+                    <input type="hidden" name="action" value="move_question">
+                    <input type="hidden" name="question_id" value="<?= (int)$question['q_id']; ?>">
+                    <input type="hidden" name="direction" value="up">
+                    <button type="submit" class="secondary-button">↑</button>
+                  </form>
+                  <form method="post" class="inline-form">
+                    <input type="hidden" name="action" value="move_question">
+                    <input type="hidden" name="question_id" value="<?= (int)$question['q_id']; ?>">
+                    <input type="hidden" name="direction" value="down">
+                    <button type="submit" class="secondary-button">↓</button>
+                  </form>
+                  <form method="post" class="inline-form">
+                    <input type="hidden" name="action" value="toggle_question">
+                    <input type="hidden" name="question_id" value="<?= (int)$question['q_id']; ?>">
+                    <input type="hidden" name="group_id" value="<?= (int)$selectedGroup['group_id']; ?>">
+                    <input type="hidden" name="is_active" value="<?= (int)$question['is_active']; ?>">
+                    <button type="submit" class="secondary-button"><?= (int)$question['is_active'] === 1 ? '無効化' : '有効化'; ?></button>
+                  </form>
+                </div>
+              </div>
             <?php endforeach; ?>
-          </ul>
+          </div>
         <?php endif; ?>
         <p><a href="question_builder.php">グループ選択へ戻る</a></p>
       <?php endif; ?>
