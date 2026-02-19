@@ -12,8 +12,9 @@ $isLoggedIn = !empty($_SESSION['is_logged_in']);
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><?= htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8'); ?></title>
-  <link rel="stylesheet" href="css/stle.css">
-  <script defer src="js/app.js"></script>
+  <link rel="stylesheet" href="css/style.css?v=<?= time() ?>">
+  <script defer src="js/app.js?v=<?= time() ?>"></script>
+
 </head>
 <body>
 
